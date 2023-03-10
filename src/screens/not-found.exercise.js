@@ -1,11 +1,7 @@
 /** @jsx jsx */
 import {jsx} from '@emotion/core'
+
 import {Link} from 'components/lib'
-// This page displays a regular link on the page, and we've got a styled component
-// for that.
-// 🐨 Import the Link from 'components/lib'
-// 💰 and feel free to take a peek at the implementation of that styled component
-// to be reminded how you can create styled components out of existing components
 
 function NotFoundScreen() {
   return (
@@ -18,9 +14,7 @@ function NotFoundScreen() {
       }}
     >
       <div>
-        Sorry... nothing here.
-        {/* 🐨 add a <Link> here that says "Go home" and sends the user to "/discover" */}
-        <Link to="/discover">Go home</Link>
+        Sorry... nothing here. <Link to="/discover">Go home</Link>
       </div>
     </div>
   )
