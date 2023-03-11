@@ -17,10 +17,9 @@ const visuallyHiddenCSS = {
   position: 'absolute',
   width: '1px',
 }
-// 💣 remove the user prop
+
 function Rating({listItem}) {
   const [isTabbing, setIsTabbing] = React.useState(false)
-  // 💣 we no longer need to pass the user here:
   const [update, {error, isError}] = useUpdateListItem()
 
   React.useEffect(() => {

@@ -1,7 +1,6 @@
-// 🐨 we're going to use React hooks in here now so we'll need React
-import React from 'react'
+import * as React from 'react'
 import {useQuery, queryCache} from 'react-query'
-import {AuthContext} from 'context/auth-context'
+import {useAuth} from 'context/auth-context'
 import {client} from './api-client'
 import bookPlaceholderSvg from 'assets/book-placeholder.svg'
 
@@ -19,8 +18,6 @@ const loadingBooks = Array.from({length: 10}, (v, index) => ({
   ...loadingBook,
 }))
 
-// 🦉 note that this is *not* treated as a hook and is instead called by other hooks
-// So we'll continue to accept the user here.
 const getBookSearchConfig = (query, user) => ({
   queryKey: ['bookSearch', {query}],
   queryFn: () =>
@@ -36,16 +33,14 @@ const getBookSearchConfig = (query, user) => ({
   },
 })
 
-// 💣 remove the user argument here
 function useBookSearch(query) {
-  const {user} = React.useContext(AuthContext)
+  const {user} = useAuth()
   const result = useQuery(getBookSearchConfig(query, user))
   return {...result, books: result.data ?? loadingBooks}
 }
 
-// 💣 remove the user argument here
 function useBook(bookId) {
-  const {user} = React.useContext(AuthContext)
+  const {user} = useAuth()
   const {data} = useQuery({
     queryKey: ['book', {bookId}],
     queryFn: () =>
@@ -54,27 +49,15 @@ function useBook(bookId) {
   return data ?? loadingBook
 }
 
-// we don't want to accept the user here anymore. Instead we'll make a new
-// hook that gets the user and then returns this function
-// (memoized with React.useCallback)
-// 🐨 create a useRefetchBookSearchQuery hook here which:
-// 1. Gets the user from the AuthContext
-// 2. Returns a memoized callback (React.useCallback) version of this
-// refetchBookSearchQuery function. It should no longer need to accept user as
-// an argument and instead lists it as a dependency.
-
-const useRefetchBookSearchQuery = () => {
-  const {user} = React.useContext(AuthContext)
-  const memoizedRefetchBookSearchQuery = React.useCallback(
-    () => refetchBookSearchQuery(user),
+function useRefetchBookSearchQuery() {
+  const {user} = useAuth()
+  return React.useCallback(
+    async function refetchBookSearchQuery() {
+      queryCache.removeQueries('bookSearch')
+      await queryCache.prefetchQuery(getBookSearchConfig('', user))
+    },
     [user],
   )
-  return memoizedRefetchBookSearchQuery
-}
-
-async function refetchBookSearchQuery(user) {
-  queryCache.removeQueries('bookSearch')
-  await queryCache.prefetchQuery(getBookSearchConfig('', user))
 }
 
 const bookQueryConfig = {
@@ -86,10 +69,4 @@ function setQueryDataForBook(book) {
   queryCache.setQueryData(['book', {bookId: book.id}], book, bookQueryConfig)
 }
 
-export {
-  useBook,
-  useBookSearch,
-  // refetchBookSearchQuery,
-  setQueryDataForBook,
-  useRefetchBookSearchQuery,
-}
+export {useBook, useBookSearch, useRefetchBookSearchQuery, setQueryDataForBook}
