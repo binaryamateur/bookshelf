@@ -3,6 +3,7 @@ import './bootstrap'
 import * as React from 'react'
 import {createRoot} from 'react-dom/client'
 import {App} from './app'
+import {Profiler} from 'components/profiler'
 import {AppProviders} from './context'
 
 // ignore the rootRef in this file. I'm just doing it here to make
@@ -11,9 +12,11 @@ export const rootRef = {}
 loadDevTools(() => {
   const root = createRoot(document.getElementById('root'))
   root.render(
-    <AppProviders>
-      <App />
-    </AppProviders>,
+    <Profiler id="App Root" phases={['mount']}>
+      <AppProviders>
+        <App />
+      </AppProviders>
+    </Profiler>,
   )
   rootRef.current = root
 })
