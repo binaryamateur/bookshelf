@@ -2,20 +2,15 @@
 // 💰 the way that our tests are set up, you'll find this in `src/test/server/test-server.js`
 import {server, rest} from 'test/server'
 import {client} from 'utils/api-client'
+
+import {queryCache} from 'react-query'
+import * as auth from 'auth-provider'
 const apiURL = process.env.REACT_APP_API_URL
 // 🐨 grab the client
 // import {client} from '../api-client'
 
-beforeAll(() => {
-  server.listen()
-})
-afterAll(() => {
-  server.close()
-})
-
-afterEach(() => {
-  server.resetHandlers()
-})
+jest.mock('react-query')
+jest.mock('auth-provider')
 
 // 🐨 flesh these out:
 
@@ -85,4 +80,37 @@ test('when data is provided, it is stringified and the method defaults to POST',
   )
   await client(endpoint, {data: data})
   expect(request.body).toEqual(data)
+})
+
+test('when response.ok is false', async () => {
+  const endpoint = 'test-endpoint'
+  const mockResult = {mockValue: 'VALUE'}
+
+  server.use(
+    rest.get(`${apiURL}/${endpoint}`, async (req, res, ctx) => {
+      return res(ctx.status(101), ctx.json({...mockResult}))
+    }),
+  )
+  try {
+    await client(endpoint)
+  } catch (data) {
+    expect(data).toEqual(mockResult)
+  }
+})
+
+test('automatically log user out and clear queryCache', async () => {
+  const endpoint = 'test-endpoint'
+  const mockResult = {mockValue: 'VALUE'}
+  server.use(
+    rest.get(`${apiURL}/${endpoint}`, async (req, res, ctx) => {
+      return res(ctx.status(401), ctx.json(mockResult))
+    }),
+  )
+  try {
+    await client(endpoint)
+  } catch (error) {
+    expect(error.message).toMatchInlineSnapshot(`"Please re-authenticate."`)
+    expect(queryCache.clear).toHaveBeenCalledTimes(1)
+    expect(auth.logout).toHaveBeenCalledTimes(1)
+  }
 })
