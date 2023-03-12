@@ -1,61 +1,16 @@
 import * as React from 'react'
-import {
-  render as rtlRender,
-  screen,
-  waitForElementToBeRemoved,
-} from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import {queryCache} from 'react-query'
-import * as auth from 'auth-provider'
-import {buildUser, buildBook} from 'test/generate'
-import * as usersDB from 'test/data/users'
+import {screen} from 'test/app-test-utils'
 import * as booksDB from 'test/data/books'
-import * as listItemsDB from 'test/data/list-items'
 import {formatDate} from 'utils/misc'
-import {AppProviders} from 'context'
 import {App} from 'app'
-
-// general cleanup
-afterEach(async () => {
-  queryCache.clear()
-  await Promise.all([
-    auth.logout(),
-    usersDB.reset(),
-    booksDB.reset(),
-    listItemsDB.reset(),
-  ])
-})
-
-const waitForLoadinToFinish = async () => {
-  await waitForElementToBeRemoved(() => [
-    ...screen.queryAllByLabelText(/loading/i),
-    ...screen.queryAllByText(/loading/i),
-  ])
-}
-
-const loginAsUser = async userProperties => {
-  const user = buildUser(userProperties)
-  await usersDB.create(user)
-  const authUser = await usersDB.authenticate(user)
-  window.localStorage.setItem(auth.localStorageKey, authUser.token)
-  return authUser
-}
-
-async function render(ui, {user, ...options} = {}) {
-  user = typeof user === 'undefined' ? await loginAsUser() : user
-  const book = await booksDB.create(buildBook())
-  const route = `/book/${book.id}`
-  window.history.pushState({}, 'Test page', route)
-
-  const returnValue = rtlRender(ui, {wrapper: AppProviders, ...options})
-
-  await waitForLoadinToFinish()
-
-  return {book, user, ...returnValue}
-}
+import {buildBook} from 'test/generate'
+import {render, userEvent, waitForLoadingToFinish} from 'test/app-test-utils'
 
 test('renders all the book information', async () => {
-  const {book} = await render(<App />)
+  const book = await booksDB.create(buildBook())
+  const route = `/book/${book.id}`
+
+  await render(<App />, {route})
 
   expect(screen.getByRole('heading', {name: book.title})).toBeInTheDocument()
   expect(screen.getByText(book.author)).toBeInTheDocument()
@@ -84,13 +39,16 @@ test('renders all the book information', async () => {
 })
 
 test('can create a list item for the book', async () => {
-  await render(<App />)
+  const book = await booksDB.create(buildBook())
+  const route = `/book/${book.id}`
+
+  await render(<App />, {route})
 
   const addToListButton = screen.getByRole('button', {name: /add to list/i})
   await userEvent.click(addToListButton)
   expect(addToListButton).toBeDisabled()
 
-  await waitForLoadinToFinish()
+  await waitForLoadingToFinish()
 
   expect(
     screen.getByRole('button', {name: /mark as read/i}),
