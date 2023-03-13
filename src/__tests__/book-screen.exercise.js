@@ -6,6 +6,8 @@ import {
   userEvent,
   loginAsUser,
 } from 'test/app-test-utils'
+
+import {server, rest} from 'test/server'
 import faker from 'faker'
 import {buildBook, buildListItem} from 'test/generate'
 import * as booksDB from 'test/data/books'
@@ -155,5 +157,69 @@ test('can edit a note', async () => {
 
   expect(await listItemsDB.read(listItem.id)).toMatchObject({
     notes: newNotes,
+  })
+})
+
+describe('console error', () => {
+  beforeAll(() => {
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+  })
+  afterAll(() => {
+    console.error.mockRestore()
+  })
+
+  test('shows an error message when the book fails to load', async () => {
+    const book = {
+      id: faker.datatype.uuid(),
+      title: faker.lorem.words(),
+      author: faker.name.findName(),
+      coverImageUrl: faker.image.imageUrl(),
+      pageCount: faker.datatype.number(400),
+      publisher: faker.company.companyName(),
+      synopsis: faker.lorem.paragraph(),
+    }
+    await renderBookScreen({book, listItem: null})
+    expect(screen.getByRole('alert').textContent).toMatchInlineSnapshot(
+      `"There was an error: Book not found"`,
+    )
+  })
+})
+
+describe('update failure', () => {
+  const testErrorMessage = '__test_error_message__'
+  beforeAll(() => {
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+    const apiURL = process.env.REACT_APP_API_URL
+
+    server.use(
+      rest.put(`${apiURL}/list-items/:listItemId`, async (req, res, ctx) => {
+        return res(
+          ctx.status(400),
+          ctx.json({status: 400, message: testErrorMessage}),
+        )
+      }),
+    )
+  })
+  afterAll(() => {
+    console.error.mockRestore()
+    server.resetHandlers()
+  })
+
+  test('note updates failures are displayd', async () => {
+    jest.useFakeTimers()
+    await renderBookScreen()
+
+    const newNotes = faker.lorem.words()
+    const notesTextarea = screen.getByRole('textbox', {name: /notes/i})
+
+    await fakeTimerUserEvent.clear(notesTextarea)
+    await fakeTimerUserEvent.type(notesTextarea, newNotes)
+    // wait for the loading spinner to show up
+    await screen.findByLabelText(/loading/i)
+    // wait for the loading spinner to go away
+    await waitForLoadingToFinish()
+    expect(screen.getByRole('alert').textContent).toMatchInlineSnapshot(
+      `"There was an error: __test_error_message__"`,
+    )
   })
 })
